@@ -38,21 +38,69 @@ J'ai utilisé la commande `umount /data` et `umount /win` pour démonter les sys
 J'ai utilisé la commande `fdisk /dev/sdb`puis d pour supprimer les deux partitions.  
 
 #### 3. A l’aide de la commande pvcreate, créez un volume physique LVM. Validez qu’il est bien créé, en utilisant la commande pvdisplay.
- Toutes les commandes concernant les volumes physiques commencent par pv. Celles concernant les groupes de volumes commencent par vg, et celles concernant les volumes logiques par lv.
+``` 
+Command (m for help): t
+Selected partition 1
+Hex code (type L to list all codes): 8E
+Changed type of partition 'Linux' to 'Linux LVM'.
+```
 
+```
+root@serveur:/home/serveur# pvcreate /dev/sdb1
+  Physical volume "/dev/sdb1" successfully created.
+root@serveur:/home/serveur# pvdisplay
+*  "/dev/sdb1" is a new physical volume of "2,00 GiB"
+  --- NEW Physical volume ---
+  PV Name               /dev/sdb1
+  VG Name
+  PV Size               2,00 GiB
+  Allocatable           NO
+  PE Size               0
+  Total PE              0
+  Free PE               0
+  Allocated PE          0
+  PV UUID               pHUkqM-CoFg-jFfw-O66Z-8wTX-QQWB-TQUnvm
+  ```
+  
 #### 4. A l’aide de la commande vgcreate, créez un groupe de volumes, qui pour l’instant ne contiendra que le volume physique créé à l’étape précédente. Vérifiez à l’aide de la commande vgdisplay.
- Par convention, on nomme généralement les groupes de volumes vgxx (où xx représente l’indice du groupe de volume, en commençant par 00, puis 01...)
-
+```
+root@serveur:/home/serveur# vgcreate volume1 /dev/sdb1
+  Volume group "volume1" successfully created
+root@serveur:/home/serveur# vgdisplay
+  --- Volume group ---
+  VG Name               volume1
+  System ID
+  Format                lvm2
+  Metadata Areas        1
+  Metadata Sequence No  1
+  VG Access             read/write
+  VG Status             resizable
+  MAX LV                0
+  Cur LV                0
+  Open LV               0
+  Max PV                0
+  Cur PV                1
+  Act PV                1
+  VG Size               <2,00 GiB
+  PE Size               4,00 MiB
+  Total PE              511
+  Alloc PE / Size       0 / 0
+  Free  PE / Size       511 / <2,00 GiB
+  VG UUID               OivH5Q-v3Ie-hcaj-ZbRm-qIEg-Viq6-pdr0jf
+  ```
 #### 5. Créez un volume logique appelé lvData occupant l’intégralité de l’espace disque disponible.
- On peut renseigner la taille d’un volume logique soit de manière absolue avec l’option -L (par exemple -L 10G pour créer un volume de 10 Gio), soit de manière relative avec l’option -l : -l 60%VG pour utiliser 60% de l’espace total du groupe de volumes, ou encore -l 100%FREE pour utiliser la totalité de l’espace libre.
-
+```
+root@serveur:/home/serveur# lvcreate -l 100%FREE -n 1vData volume1
+  Logical volume "1vData" created.
+  ```
 #### 6. Dans ce volume logique, créez une partition que vous formaterez en ext4, puis procédez comme dans l’exercice 1 pour qu’elle soit montée automatiquement, au démarrage de la machine, dans /data.
- A ce stade, l’utilité de LVM peut paraître limitée. Il trouve tout son intérêt quand on veut par exemple agrandir une partition à l’aide d’un nouveau disque.
+`fdisk /dev/mapper/volume1-1vData` puis `mkfs.ext4 /dev/mapper/volume1-1vData` puis rajouté dans le fstab la ligne `/dev/mapper/volume1-1vData /data ext4 defaults 0 0`.
 
 #### 7. Eteignez la VM pour ajouter un second disque (peu importe la taille pour cet exercice). Redémarrez la VM, vérifiez que le disque est bien présent. Puis, répétez les questions 2 et 3 sur ce nouveau disque.
+Done.
 
 #### 8. Utilisez la commande vgextend <nom_vg> <nom_pv> pour ajouter le nouveau disque au groupe de volumes
+`vgextend volume1 /dev/sdc1`.
 
 #### 9. Utilisez la commande lvresize (ou lvextend) pour agrandir le volume logique. Enfin, il ne faut pas oublier de redimensionner le système de fichiers à l’aide de la commande resize2fs.
-
- Il est possible d’aller beaucoup plus loin avec LVM, par exemple en créant des volumes par bandes (l’équivalent du RAID 0) ou du mirroring (RAID 1). Le but de cet exercice n’était que de présenter les fonctionnalités de base.
+`lvextend -l 100%FREE /dev/volume1/1vData` puis `resize2fs /dev/volume1/1vData`.
